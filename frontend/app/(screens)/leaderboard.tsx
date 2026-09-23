@@ -5,6 +5,7 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { RankBadge } from "@/src/components/rank-badge";
+import { FriendsPanel } from "@/src/components/friends-panel";
 import { fetchLeaderboard, LeaderboardResp, LeaderboardRow } from "@/src/store/api";
 import { rankForXp } from "@/src/data/ranks";
 import { useProgress } from "@/src/store/progress";
@@ -14,7 +15,7 @@ export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { state } = useProgress();
-  const [tab, setTab] = useState<"GLOBAL" | "NEARBY">("GLOBAL");
+  const [tab, setTab] = useState<"GLOBAL" | "NEARBY" | "FRIENDS">("GLOBAL");
   const [data, setData] = useState<LeaderboardResp | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +68,7 @@ export default function LeaderboardScreen() {
 
       {/* Tabs */}
       <View style={styles.tabs}>
-        {(["GLOBAL", "NEARBY"] as const).map((t) => (
+        {(["GLOBAL", "NEARBY", "FRIENDS"] as const).map((t) => (
           <Pressable
             key={t}
             testID={`tab-${t.toLowerCase()}`}
@@ -79,7 +80,9 @@ export default function LeaderboardScreen() {
         ))}
       </View>
 
-      {loading ? (
+      {tab === "FRIENDS" ? (
+        state?.deviceId ? <FriendsPanel deviceId={state.deviceId} /> : null
+      ) : loading ? (
         <ActivityIndicator style={{ marginTop: spacing.xl }} color={colors.brandPrimary} />
       ) : error ? (
         <View style={styles.errorWrap}>

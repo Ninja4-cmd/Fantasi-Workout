@@ -12,6 +12,17 @@ export type UserPublic = {
   title: string | null;
   is_npc: boolean;
   is_you: boolean;
+  friend_code?: string | null;
+};
+
+export type SquadMember = UserPublic & { squad_rank: number };
+export type FriendsResp = {
+  me: UserPublic;
+  friends: SquadMember[];
+  squad_xp: number;
+  squad_size: number;
+  my_squad_rank: number;
+  rival: { username: string; gap: number } | null;
 };
 
 export type LeaderboardRow = UserPublic & { rank: number };
@@ -53,4 +64,22 @@ export async function fetchLeaderboard(device_id?: string, limit = 100): Promise
   if (device_id) q.set("device_id", device_id);
   q.set("limit", String(limit));
   return req<LeaderboardResp>(`/leaderboard?${q.toString()}`);
+}
+
+export async function fetchFriends(device_id: string): Promise<FriendsResp> {
+  return req<FriendsResp>(`/friends?device_id=${encodeURIComponent(device_id)}`);
+}
+
+export async function addFriend(device_id: string, code: string): Promise<UserPublic> {
+  return req<UserPublic>("/friends/add", {
+    method: "POST",
+    body: JSON.stringify({ device_id, code }),
+  });
+}
+
+export async function removeFriend(device_id: string, friend_id: string): Promise<{ ok: boolean }> {
+  return req<{ ok: boolean }>("/friends/remove", {
+    method: "POST",
+    body: JSON.stringify({ device_id, friend_id }),
+  });
 }

@@ -50,10 +50,20 @@ plays for any rank increase, with a distinct "MAJOR PROMOTION" label for Apex+.
 ## Known Follow-ups
 - **Push notifications**: user requested real push. Needs the Emergent Push Notifications
   playbook + Google `google-services.json` upload — flagged for the next session.
-- **Immortal mega animation**: currently a shared rank-up modal handles all promotions;
-  a dedicated cinematic Immortal reveal can be built next.
-- **Real badge art**: user will provide real 27 badge images to replace the placeholder
-  shield + icon + tier-dots tiles.
+
+## Recently Shipped (this session)
+- **Real badge art**: 27 illustrated rank badges (assets/badges/rank_01..27.png) sliced
+  from the user-supplied grid with a soft black-key alpha. `src/data/rank-badges.ts` maps
+  Rank.index → image; `RankBadge` now renders the illustrated art with a colored glow.
+- **Immortal cinematic** (`src/components/immortal-cinematic.tsx`): full-screen dark reveal
+  with expanding energy rings, rotating gold sunburst, badge burst, haptics and
+  "ENTER THE PANTHEON" CTA. `RankUpModal` delegates to it whenever the new rank family is
+  IMMORTAL (rank 27), so both Home and Workout entry points trigger it.
+- **Friends & Squad**: anonymous friend-code linking. Backend adds `friend_code` +
+  `friends[]` to users and endpoints `GET /api/friends`, `POST /api/friends/add`,
+  `POST /api/friends/remove`. Leaderboard gains a FRIENDS tab (`src/components/friends-panel.tsx`)
+  with share invite, add-by-code, Squad Power (combined XP), squad ranking and a rival
+  XP-chase callout.
 
 ## Files
 - `frontend/app/(tabs)/*.tsx` — Home / Workout / Fuel / Character

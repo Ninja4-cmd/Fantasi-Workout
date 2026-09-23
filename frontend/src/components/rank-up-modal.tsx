@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { RankBadge } from "@/src/components/rank-badge";
+import { ImmortalCinematic } from "@/src/components/immortal-cinematic";
 import { RANKS } from "@/src/data/ranks";
 import { colors, radius, spacing } from "@/src/theme";
 
@@ -34,7 +35,13 @@ export function RankUpModal({ fromIndex, toIndex, onDismiss }: Props) {
   if (!visible) return null;
   const from = RANKS[fromIndex!];
   const to = RANKS[toIndex!];
-  const isMajor = to.family === "TITAN" || to.family === "ASCENDANT" || to.family === "IMMORTAL" || to.family === "APEX";
+
+  // Hitting the final rank triggers the dedicated Immortal cinematic instead of the card.
+  if (to.family === "IMMORTAL") {
+    return <ImmortalCinematic visible onDismiss={onDismiss} />;
+  }
+
+  const isMajor = to.family === "TITAN" || to.family === "ASCENDANT" || to.family === "APEX";
 
   return (
     <Modal transparent visible animationType="fade" onRequestClose={onDismiss}>
