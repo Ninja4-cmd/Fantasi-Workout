@@ -1,0 +1,152 @@
+{
+  "app_name": "Ascend90",
+  "personality": "7 Dark-First Utility",
+  "personality_one_liner": "A gamified, high-contrast command center where every drop of sweat translates directly into XP and rank.",
+  "color": {
+    "surface": "#0D0E12",
+    "onSurface": "#F1F2F6",
+    "surfaceSecondary": "#1A1B22",
+    "onSurfaceSecondary": "#D8DCE5",
+    "surfaceTertiary": "#252731",
+    "onSurfaceTertiary": "#A0A6B5",
+    "surfaceInverse": "#FFFFFF",
+    "onSurfaceInverse": "#0D0E12",
+    "brand": "#FF5A36",
+    "brandPrimary": "#FF5A36",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#FF7A00",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#FF5A361A",
+    "onBrandTertiary": "#FF5A36",
+    "success": "#00E676",
+    "onSuccess": "#00331A",
+    "warning": "#FFC107",
+    "onWarning": "#332600",
+    "error": "#FF3B30",
+    "onError": "#FFFFFF",
+    "info": "#787D8E",
+    "onInfo": "#FFFFFF",
+    "border": "#252731",
+    "borderStrong": "#3A3D4A",
+    "divider": "#1A1B22",
+    "muted": "#787D8E",
+    "onBrand": "#FFFFFF"
+  },
+  "typography": {
+    "displayFontFamily": "Rajdhani",
+    "textFontFamily": "Manrope",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Use tight spacing for metric grids and lists. Avoid unnecessary empty space; keep the interface highly operational and dense.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": "true",
+    "do's": [
+      "Use blur on the bottom tab bar to maintain context of scrollable lists behind it.",
+      "Use blur on sticky headers when scrolling through the day's exercise list."
+    ],
+    "dont's": [
+      "Do not use glass on exercise cards or meal cards. Keep them solid surfaceSecondary for operational clarity.",
+      "Avoid glassmorphism on metric grids or data visualization components."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Workout (Home)",
+      "purpose": "The daily battleground displaying today's split, allowing users to check off exercises and earn XP.",
+      "states": {
+        "loading": "Centered brandPrimary spinner.",
+        "empty": "Rest day state: hero illustration of recovery, message 'Rest Day - Recover Your Strength', and a disabled 'Workout Complete' button.",
+        "error": "Error loading workout plan, with a 'Retry' CTA."
+      },
+      "layout": "Top section: A sticky user Rank Chip (e.g., 'SILVER III') and a linear XP progress bar showing current vs next level. Below: A horizontally scrolling 7-day calendar strip (acting as the 90-day challenge micro-view). Main content: A list of today's exercises (e.g., Chest + Triceps). Each exercise is a dense row (surfaceSecondary) with text for sets/reps and a high-contrast 'Complete' button. Bottom: A sticky CTA 'Complete Full Workout (+50 XP)' locked above the bottom tab bar."
+    },
+    {
+      "name": "Meals",
+      "purpose": "A streamlined checklist for daily nutrition to ensure the user stays on track with their diet for small XP gains.",
+      "states": {
+        "loading": "Centered brandPrimary spinner.",
+        "empty": "No meals planned for today, with an illustration of meal prep and a button to 'Generate Meal Plan'.",
+        "error": "Failed to load meal data, with 'Retry' CTA."
+      },
+      "layout": "Hero image of dark meal prep container with a vertical gradient scrim (transparent to surfaceInverse). Top overlays: 'Daily Fuel' score. Main content: A vertical list of cards for Breakfast, Lunch, Snacks (x2), and Dinner. Each card has a checkbox (circle icon). Checking it fills the circle with the success color and triggers an XP pop-up animation."
+    },
+    {
+      "name": "Profile & Challenge",
+      "purpose": "The grand overview of the user's 90-day journey, showcasing their current rank, total XP, and overarching challenge progress.",
+      "states": {
+        "loading": "Centered brandPrimary spinner.",
+        "empty": "No challenge started. Big 'Start 90-Day Challenge' CTA.",
+        "error": "Failed to fetch stats, with 'Retry' CTA."
+      },
+      "layout": "Top section: Full-width hero banner (athletic sprinting image) with a heavy vertical scrim. Overlaying the scrim: An oversized Rank Shield/Typography (e.g., 'PLATINUM') and total XP. Below the fold: A 2-column grid of operational metrics (Workouts Completed, Meal Check-in Rate, Current Streak). Bottom section: A large progress bar mapping out the full 90-Day Challenge (e.g., 'Day 42 / 90')."
+    }
+  ],
+  "haptics": {
+    "events": {
+      "exercise_complete": "success",
+      "meal_checked": "success",
+      "workout_complete": "heavy",
+      "level_up": "heavy",
+      "tab_press": "selection"
+    }
+  },
+  "images": {
+    "hero_workout": {
+      "url": "https://images.unsplash.com/photo-1637430308606-86576d8fef3c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwxfHxkYXJrJTIwY2luZW1hdGljJTIwZ3ltJTIwd29ya291dHxlbnwwfHx8fDE3ODk2NDY5ODB8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Dark cinematic gym with exercise machines"
+    },
+    "meals_bg": {
+      "url": "https://images.unsplash.com/photo-1714423126086-3c5009fcd09a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxoZWFsdGh5JTIwbWVhbCUyMHByZXAlMjBjb250YWluZXIlMjBkYXJrfGVufDB8fHx8MTc4OTY0Njk4MHww&ixlib=rb-4.1.0&q=85",
+      "alt": "Healthy meal prep container in dark setting"
+    },
+    "profile_banner": {
+      "url": "https://images.pexels.com/photos/35005203/pexels-photo-35005203.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Group of men running on outdoor track at night under stadium lights"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the Dark-First Utility personality (number 7). Do not introduce rounded playful UI, soft colors, or heavy shadows.",
+    "Implement the Rank progression heavily using the condensed Rajdhani font. Ranks are Bronze, Silver, Gold, Platinum, Diamond, Master.",
+    "For the daily workout and meal lists, use solid surfaceSecondary for the cards/rows separated by borders or spacing. Avoid glassmorphism on these operational elements.",
+    "Use Phosphor icons. Ensure icon weights match consistently across the app.",
+    "Every image used as a background MUST have a top-to-bottom vertical linear gradient scrim (transparent to >=70% surfaceInverse) to guarantee text contrast. Ensure the text sits in the darkest bottom 30-40% of the area.",
+    "For interactions: Implement instantaneous state changes for checking off exercises/meals, coupled with the specified success haptics. Gamification requires immediate responsive feedback.",
+    "Ensure the 'Complete Full Workout' primary CTA is sticky at the bottom of the screen (above the tab bar), using a solid surface container or glass fallback, not hiding behind scrollable content."
+  ]
+}
