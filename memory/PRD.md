@@ -48,8 +48,23 @@ plays for any rank increase, with a distinct "MAJOR PROMOTION" label for Apex+.
 - Progress hook fire-and-forget syncs XP + counters on every state change.
 
 ## Known Follow-ups
-- **Push notifications**: user requested real push. Needs the Emergent Push Notifications
-  playbook + Google `google-services.json` upload — flagged for the next session.
+- **Push notifications — needs user action**: infra is fully wired (backend `/api/register-push`
+  + `/api/notify` relay, `send_push` on friend-join, client registration + tap handlers in
+  `app/_layout.tsx`). To go live the user must (1) add their Firebase `google-services.json`
+  to `frontend/` (app.json already points to `./google-services.json`) and (2) Publish →
+  Deploy → Generate builds. `EMERGENT_PUSH_KEY` stays `placeholder` until the deploy
+  pipeline injects the real key. Cannot be tested in Expo Go/web.
+
+## Recently Shipped (this session)
+- **Badge Shelf**: Character page "RANK COLLECTION" grid of all 27 illustrated badges;
+  earned (rank reached via totalXpEver) are bright, locked are dimmed with a lock icon.
+- **Invite Rewards**: backend records a referral on the code owner when someone joins via
+  their code; client pays +500 XP per new referral once (tracked by `rewardedReferrals`),
+  with an inline reward banner in the Friends panel.
+- **Squad Race Board**: weekly XP race in the Friends tab. Client syncs `week_key`/`week_xp`;
+  `GET /api/friends` returns a `race.board` ranked by this week's XP (TZ-proof via max
+  week_key), auto-resetting every Monday. Shows lanes with progress bars + reset countdown.
+- **Push Alerts infra**: see follow-up above.
 
 ## Recently Shipped (this session)
 - **Real badge art**: 27 illustrated rank badges (assets/badges/rank_01..27.png) sliced

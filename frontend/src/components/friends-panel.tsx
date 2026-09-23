@@ -16,27 +16,45 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RankBadge } from "@/src/components/rank-badge";
 import { addFriend, fetchFriends, FriendsResp, removeFriend } from "@/src/store/api";
 import { rankForXp } from "@/src/data/ranks";
+import { useProgress } from "@/src/store/progress";
 import { colors, radius, spacing } from "@/src/theme";
+
+function daysUntilMonday(): number {
+  const day = new Date().getDay(); // 0 Sun..6 Sat
+  return day === 1 ? 7 : (8 - day) % 7 || 7;
+}
 
 export function FriendsPanel({ deviceId }: { deviceId: string }) {
   const insets = useSafeAreaInsets();
+  const { applyInviteRewards } = useProgress();
   const [data, setData] = useState<FriendsResp | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [adding, setAdding] = useState(false);
+  const [rewardMsg, setRewardMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!deviceId) return;
     setLoading(true); setError(null);
     try {
-      setData(await fetchFriends(deviceId));
+      const d = await fetchFriends(deviceId);
+      setData(d);
+      // Pay out any invite rewards for friends who joined via my code.
+      const reward = await applyInviteRewards(d.referral_count ?? 0);
+      if (reward > 0) setRewardMsg(`+${reward} XP · Invite reward! Friends joined your squad 🎉`);
     } catch (e: any) {
       setError(e?.message ?? "Failed to load squad");
     } finally {
       setLoading(false);
     }
-  }, [deviceId]);
+  }, [deviceId, applyInviteRewards]);
+
+  useEffect(() => {
+    if (!rewardMsg) return;
+    const t = setTimeout(() => setRewardMsg(null), 5000);
+    return () => clearTimeout(t);
+  }, [rewardMsg]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -96,6 +114,13 @@ export function FriendsPanel({ deviceId }: { deviceId: string }) {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
+      {rewardMsg ? (
+        <View style={styles.rewardBanner} testID="invite-reward-banner">
+          <Ionicons name="gift" size={18} color={colors.onBrandPrimary} />
+          <Text style={styles.rewardTxt}>{rewardMsg}</Text>
+        </View>
+      ) : null}
+
       {/* Friend code card */}
       <View style={styles.codeCard}>
         <Text style={styles.codeLabel}>YOUR FRIEND CODE</Text>
@@ -149,12 +174,52 @@ export function FriendsPanel({ deviceId }: { deviceId: string }) {
         </View>
       ) : null}
 
+      {/* Weekly Squad Race */}
+      {(() => {
+        const board = data?.race?.board ?? [];
+        const hasSquad = (data?.squad_size ?? 1) > 1;
+        const maxWk = Math.max(1, ...board.map((b) => b.week_xp));
+        const resetIn = daysUntilMonday();
+        return (
+          <View style={styles.raceBoard} testID="squad-race">
+            <View style={styles.raceHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="speedometer" size={16} color={colors.brandPrimary} />
+                <Text style={styles.raceTitle}>SQUAD RACE · THIS WEEK</Text>
+              </View>
+              <Text style={styles.resetTxt}>resets in {resetIn}d</Text>
+            </View>
+            {!hasSquad ? (
+              <Text style={styles.raceHint}>Add squad members to start a weekly XP race. Most XP earned by Monday wins.</Text>
+            ) : (
+              board.map((b) => (
+                <View key={b.id} style={styles.raceLane} testID={`race-lane-${b.rank}`}>
+                  <Text style={[styles.racePos, b.rank === 1 && styles.posTop]}>#{b.rank}</Text>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={styles.raceLaneTop}>
+                      <Text style={[styles.raceName2, b.is_you && { color: colors.brandPrimary }]} numberOfLines={1}>
+                        {b.is_you ? "YOU" : b.username}
+                        {b.rank === 1 ? "  👑" : ""}
+                      </Text>
+                      <Text style={styles.raceXp}>{b.week_xp.toLocaleString()} XP</Text>
+                    </View>
+                    <View style={styles.raceTrack}>
+                      <View style={[styles.raceFill, { width: `${Math.round((b.week_xp / maxWk) * 100)}%`, backgroundColor: b.is_you ? colors.brandPrimary : colors.borderStrong }]} />
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        );
+      })()}
+
       {/* Squad ranking */}
-      <Text style={styles.sectionLbl}>SQUAD RANKING</Text>
+      <Text style={styles.sectionLbl}>SQUAD RANKING · ALL TIME</Text>
       {friendsOnly.length === 0 && (
         <View style={styles.empty}>
           <Ionicons name="person-add" size={30} color={colors.muted} />
-          <Text style={styles.emptyTxt}>No squad yet. Share your code or add a friend's code to start an XP race.</Text>
+          <Text style={styles.emptyTxt}>No squad yet. Share your code or paste a code to start an XP race.</Text>
         </View>
       )}
       {squad.map((m) => {
@@ -182,7 +247,8 @@ export function FriendsPanel({ deviceId }: { deviceId: string }) {
 
 const styles = StyleSheet.create({
   codeCard: { alignItems: "center", padding: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
-  codeLabel: { color: colors.muted, fontSize: 10, fontWeight: "900", letterSpacing: 2 },
+  rewardBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, backgroundColor: colors.brandPrimary, borderRadius: radius.md },
+  rewardTxt: { color: colors.onBrandPrimary, fontWeight: "900", fontSize: 13, flex: 1 },  codeLabel: { color: colors.muted, fontSize: 10, fontWeight: "900", letterSpacing: 2 },
   code: { color: colors.onSurface, fontSize: 36, fontWeight: "900", letterSpacing: 8, marginLeft: 8 },
   shareBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: colors.brandPrimary, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.pill, marginTop: spacing.xs },
   shareTxt: { color: colors.onBrandPrimary, fontWeight: "900", letterSpacing: 1.5, fontSize: 12 },
@@ -197,6 +263,18 @@ const styles = StyleSheet.create({
   raceCard: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md },
   raceTxt: { color: colors.onSurfaceSecondary, fontSize: 13, fontWeight: "600", flex: 1 },
   raceName: { color: colors.warning, fontWeight: "900" },
+  raceBoard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.md },
+  raceHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  raceTitle: { color: colors.onSurface, fontSize: 12, fontWeight: "900", letterSpacing: 1.5 },
+  resetTxt: { color: colors.muted, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  raceHint: { color: colors.onSurfaceTertiary, fontSize: 12, lineHeight: 18 },
+  raceLane: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  racePos: { color: colors.onSurface, fontSize: 13, fontWeight: "900", minWidth: 28 },
+  raceLaneTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  raceName2: { color: colors.onSurface, fontSize: 13, fontWeight: "900", flex: 1 },
+  raceXp: { color: colors.onSurfaceTertiary, fontSize: 12, fontWeight: "800" },
+  raceTrack: { height: 8, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, overflow: "hidden" },
+  raceFill: { height: "100%", borderRadius: radius.pill },
   sectionLbl: { color: colors.muted, fontSize: 11, fontWeight: "900", letterSpacing: 2, marginTop: spacing.sm },
   empty: { alignItems: "center", gap: spacing.sm, padding: spacing.xl },
   emptyTxt: { color: colors.onSurfaceTertiary, fontSize: 13, textAlign: "center", lineHeight: 20 },

@@ -7,7 +7,7 @@ import { rankForXp } from "@/src/data/ranks";
 import { HYDRATION_GOAL_ML, HYDRATION_STEP_ML } from "@/src/data/meals";
 import { WORKOUT_PLAN, isoDate, isoWeekOf } from "@/src/data/workouts";
 import { XP_REWARDS } from "@/src/data/xp";
-import { upsertUser } from "@/src/store/api";
+import { upsertUser, notifySelf } from "@/src/store/api";
 
 const KEY = "ascend90:state:v2";
 const EVT = "ascend90:state-changed";
@@ -53,6 +53,9 @@ export type Progress = {
   // Character
   character: CharacterCustom;
 
+  // Invite rewards — how many referrals have already been paid out locally
+  rewardedReferrals: number;
+
   // Notifications (in-app inbox)
   notifications: NotificationItem[];
 
@@ -96,6 +99,7 @@ function makeDefault(): Progress {
     streakMax: 0,
     lastActiveDate: null,
     character: DEFAULT_CHARACTER,
+    rewardedReferrals: 0,
     notifications: [],
     pendingRankUp: null,
   };
@@ -147,6 +151,8 @@ async function syncToBackend(s: Progress) {
       challenges_completed: s.claimedChallenges.length,
       achievements_unlocked: s.claimedAchievements.length,
       title: s.title,
+      week_key: getWeekMondayISO(),
+      week_xp: weekXpEstimate(s, getWeekMondayISO()),
     });
   } catch { /* offline is fine */ }
 }
@@ -321,11 +327,13 @@ function awardXp(s: Progress, amount: number, reason: string): Progress {
   let out: Progress = { ...s, xp: nextXp, totalXpEver: nextTotal };
   if (amount > 0 && nextIdx > prevIdx) {
     out = { ...out, pendingRankUp: { fromIndex: prevIdx, toIndex: nextIdx } };
+    const rankName = rankForXp(nextXp).current.name;
     out = pushNotification(out, {
       icon: "trophy",
       title: "NEW RANK!",
-      body: `You reached ${rankForXp(nextXp).current.name}`,
+      body: `You reached ${rankName}`,
     });
+    notifySelf(s.deviceId, "NEW RANK! 🏆", `You reached ${rankName}`, "/(tabs)/character");
   }
   return out;
 }
@@ -380,8 +388,14 @@ export function useProgress() {
       body: `+${bonus} XP for finishing ${workout?.title ?? "your workout"}`,
     });
     // streak bonuses
-    if (out.streak === 7) out = awardXp(out, XP_REWARDS.STREAK_7, "streak7");
-    if (out.streak === 30) out = awardXp(out, XP_REWARDS.STREAK_30, "streak30");
+    if (out.streak === 7) {
+      out = awardXp(out, XP_REWARDS.STREAK_7, "streak7");
+      notifySelf(out.deviceId, "7-Day Streak! 🔥", `+${XP_REWARDS.STREAK_7} XP · One week strong. Keep it alive!`, "/(tabs)");
+    }
+    if (out.streak === 30) {
+      out = awardXp(out, XP_REWARDS.STREAK_30, "streak30");
+      notifySelf(out.deviceId, "30-Day Streak! 🔥🔥", `+${XP_REWARDS.STREAK_30} XP · A full month. You're unstoppable!`, "/(tabs)");
+    }
     await save(out);
     return true;
   }, []);
@@ -468,6 +482,7 @@ export function useProgress() {
       title: "WEEKLY COMPLETE",
       body: `+${def.reward} XP · ${def.title}`,
     });
+    notifySelf(out.deviceId, "Weekly Quest Done! ⭐", `+${def.reward} XP · ${def.title}`, "/(screens)/quests");
     await save(out);
     return true;
   }, []);
@@ -486,6 +501,7 @@ export function useProgress() {
       title: "CHALLENGE COMPLETE",
       body: `+${def.reward} XP · ${def.title}${def.badgeTitle ? ` · Title unlocked: ${def.badgeTitle}` : ""}`,
     });
+    notifySelf(out.deviceId, "Challenge Complete! ⚔️", `+${def.reward} XP · ${def.title}`, "/(screens)/challenges");
     await save(out);
     return true;
   }, []);
@@ -528,6 +544,24 @@ export function useProgress() {
     await save({ ...s, pendingRankUp: null });
   }, []);
 
+  // Pay out invite bonus XP for any referrals not yet rewarded on this device.
+  const applyInviteRewards = useCallback(async (referralCount: number): Promise<number> => {
+    const s = await load();
+    const already = s.rewardedReferrals ?? 0;
+    const newOnes = Math.max(0, referralCount - already);
+    if (newOnes <= 0) return 0;
+    let out: Progress = { ...s, rewardedReferrals: referralCount };
+    const reward = newOnes * XP_REWARDS.INVITE_FRIEND;
+    out = awardXp(out, reward, "invite");
+    out = pushNotification(out, {
+      icon: "people",
+      title: "INVITE REWARD",
+      body: `+${reward} XP · ${newOnes} friend${newOnes === 1 ? "" : "s"} joined your squad`,
+    });
+    await save(out);
+    return reward;
+  }, []);
+
   const markNotificationsSeen = useCallback(async () => {
     const s = await load();
     await save({ ...s, notifications: s.notifications.map((n) => ({ ...n, seen: true })) });
@@ -556,6 +590,7 @@ export function useProgress() {
     setTitle,
     setCharacter,
     acknowledgeRankUp,
+    applyInviteRewards,
     markNotificationsSeen,
     resetProgress,
   };

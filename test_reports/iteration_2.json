@@ -1,0 +1,37 @@
+{
+  "summary": "Full backend + frontend verification of Squad Race, Invite Rewards, Badge Shelf and push graceful-degradation features. Wrote pytest suite (7 tests, all pass) and Playwright mobile E2E (390x844). Race board correctly ranks BetaTester (week_xp=3200, current week) above AlphaTester (total 12000 but stale week_key -> weekly contribution=0). Referral count increments on the code owner. /notify returns {ok:false} gracefully with placeholder EMERGENT_PUSH_KEY (no crash). /register-push returns 500 JSON gracefully. Character screen shows 'RANK COLLECTION 1/27' with 1 earned + 26 locked shelf cells and lock icons on dimmed badges (testIDs shelf-<i>-earned/-locked, badges-unlocked). Leaderboard FRIENDS tab exposes my-friend-code, friend-code-input, add-friend-btn, squad-xp, squad-race. E2E invite reward verified: after a second user added the app-user's code via the API, reloading the FRIENDS tab increased xp 0->500, totalXpEver 0->500, rewardedReferrals 0->1 (+500 XP as spec) and the race board rendered race-lane-1 & race-lane-2. Idempotency confirmed: a second reload did not re-award. One minor observation: on React-Native-Web the Alert.alert('Invite reward!') modal does not surface as a browser dialog nor as a visible DOM overlay (RN Web Alert has limited web support) — the state change fires correctly, so on a native build the toast will appear, but on web preview the user sees no explicit alert message.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "Alert.alert on RN Web", "issue": "Alert.alert calls in friends-panel.tsx (Invite reward, Squad up!, Couldn't add) do not render on the web preview — RN Web has no native Alert. State updates correctly. Consider using an in-app toast/XpToast for cross-platform visibility. Reference: /app/frontend/src/components/friends-panel.tsx:44,62,65"},
+      {"component": "expo-notifications on web", "issue": "Console warning at load: '[expo-notifications] Listening to push token changes is not yet fully supported on web. Adding a listener will have no effect.' — expected on web preview; native build will handle."},
+      {"component": "textShadow*/shadow* deprecation warnings", "issue": "RN Web warns '\"textShadow*\" style props are deprecated. Use \"textShadow\"' and '\"shadow*\" style props are deprecated. Use \"boxShadow\"' at startup — cosmetic; source is somewhere in theme/components using legacy shadow props."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_race_and_invite.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Replace Alert.alert('Invite reward!', ...) in friends-panel.tsx with the existing XpToast so web-preview users also see the reward feedback; keep Alert.alert as fallback for native.",
+    "(Optional / cosmetic) Sweep RN styles for textShadow*/shadow* and migrate to boxShadow / textShadow to silence startup warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py::get_friends correctly derives current_week = max(week_keys + [server_week]) so stale week_key contributes 0 — TZ-proof and matches spec.",
+    "friends/add mutual-links AND records referral on target only (owner of the code) — matches spec; idempotency via $addToSet prevents double-referral if replayed.",
+    "notify wraps send_push in try/except and returns {ok:false} instead of raising — good graceful degradation for placeholder EMERGENT_PUSH_KEY.",
+    "register-push does NOT wrap the upstream call, so a placeholder key surfaces as HTTP 500 (raised inside send flow). Body is JSON, but consider returning {ok:false} for symmetry with /notify.",
+    "progress.ts::applyInviteRewards persists rewardedReferrals BEFORE awarding via awardXp — idempotent across reloads (verified).",
+    "character.tsx::earnedIndex uses Math.max(xp, total) — monotonic across resets; good design."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (7/7 pytest)", "frontend": "100% (all critical flows pass)"},
+  "seed_data_creation": "Created TEST_-prefixed users during pytest (AlphaTester/BetaTester/Owner/Friend/Self) and one TEST_e2e2_* user during the invite-reward E2E. All are is_npc=false, don't pollute the leaderboard visibly, and are cheap to leave.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Preview URL: https://fittrack-gains-4.preview.emergentagent.com. pytest file at /app/backend/tests/test_race_and_invite.py — reusable for regression. Key mobile testIDs: character-screen, badges-unlocked, shelf-<index>-earned/-locked, my-friend-code, friend-code-input, add-friend-btn, squad-xp, squad-race, race-lane-<rank>. Note: on RN Web, Alert.alert does not surface; validate via localStorage state (ascend90:state:v2 -> rewardedReferrals/xp/totalXpEver) instead of waiting for a dialog.",
+  "rca_of_issue": "N/A — all spec features working. See summary."
+}

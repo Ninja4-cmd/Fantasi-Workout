@@ -8,7 +8,7 @@ import { CharacterSvg } from "@/src/components/character-svg";
 import { RankBadge } from "@/src/components/rank-badge";
 import { XpBar } from "@/src/components/xp-bar";
 import { XpToast } from "@/src/components/xp-toast";
-import { rankForXp } from "@/src/data/ranks";
+import { rankForXp, RANKS } from "@/src/data/ranks";
 import { TITLES } from "@/src/data/game";
 import { useProgress, metrics } from "@/src/store/progress";
 import { usesNativeTabs } from "@/src/navigation";
@@ -39,6 +39,8 @@ export default function CharacterScreen() {
   const nextLevel = level + 1;
   const xpIntoLevel = total % 500;
   const { current } = rankForXp(xp);
+  // Highest rank ever reached (totalXpEver is monotonic) lights up the collection.
+  const earnedIndex = rankForXp(Math.max(xp, total)).current.index;
   const m = state ? metrics(state) : null;
 
   const unlocked = useMemo(() => ({
@@ -103,6 +105,37 @@ export default function CharacterScreen() {
           <Text style={styles.rankLabel}>RANK PROGRESS</Text>
           <Text style={[styles.rankName, { color: current.color }]}>{current.name}</Text>
           <XpBar xp={xp} />
+        </View>
+
+        {/* Badge Shelf / Rank Collection */}
+        <View style={styles.shelfCard}>
+          <View style={styles.shelfHeader}>
+            <Text style={styles.customTitle}>RANK COLLECTION</Text>
+            <Text style={styles.shelfCount} testID="badges-unlocked">{earnedIndex} / {RANKS.length}</Text>
+          </View>
+          <View style={styles.shelfGrid}>
+            {RANKS.map((r) => {
+              const earned = r.index <= earnedIndex;
+              return (
+                <View key={r.index} style={styles.shelfCell} testID={`shelf-${r.index}${earned ? "-earned" : "-locked"}`}>
+                  <View style={styles.shelfBadgeWrap}>
+                    <View style={!earned && styles.lockedBadge}>
+                      <RankBadge rank={r} size="sm" glow={earned} />
+                    </View>
+                    {!earned ? (
+                      <View style={styles.lockOverlay} pointerEvents="none">
+                        <Ionicons name="lock-closed" size={13} color={colors.onSurfaceSecondary} />
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={[styles.shelfName, { color: earned ? r.color : colors.muted }]} numberOfLines={1}>
+                    {r.family.slice(0, 3)}{r.tier ? ` ${r.tier}` : ""}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+          <Text style={styles.unlockHint}>Earn XP to climb the ladder and light up every badge</Text>
         </View>
 
         {/* Character stat summary */}
@@ -258,6 +291,15 @@ const styles = StyleSheet.create({
   rankCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
   rankLabel: { color: colors.muted, fontSize: 11, fontWeight: "900", letterSpacing: 2 },
   rankName: { fontSize: 22, fontWeight: "900", letterSpacing: 1.5 },
+  shelfCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
+  shelfHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  shelfCount: { color: colors.brandPrimary, fontSize: 13, fontWeight: "900", letterSpacing: 1 },
+  shelfGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: spacing.md },
+  shelfCell: { width: "22%", alignItems: "center", gap: 4 },
+  shelfBadgeWrap: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  lockedBadge: { opacity: 0.28 },
+  lockOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  shelfName: { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
   gridRow: { flexDirection: "row", gap: spacing.sm },
   miniTile: { flex: 1, padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   miniValue: { color: colors.onSurface, fontSize: 18, fontWeight: "900" },

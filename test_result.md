@@ -101,3 +101,46 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Session: Badge Shelf, Invite Rewards, Squad Race, Push Alerts (backend+frontend)
+
+backend:
+  - task: "Friends weekly Squad Race + referrals in GET /api/friends"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+  - task: "POST /api/friends/add records referral on code owner + friend-join push"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+  - task: "POST /api/register-push + POST /api/notify (Emergent push relay, placeholder key)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+  - task: "upsert stores week_key/week_xp for weekly race"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+
+frontend:
+  - task: "Character Badge Shelf (RANK COLLECTION 27 badges, locked dimmed)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/character.tsx"
+  - task: "Friends panel: Squad Race board + invite reward payout on load"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/friends-panel.tsx"
+  - task: "Real illustrated rank badges everywhere (prior session)"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/components/rank-badge.tsx"
+
+metadata:
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Squad Race weekly board correctness (ranks by week_xp not total)"
+    - "Invite reward pays out once per new referral on app user"
+    - "Badge Shelf earned vs locked reflects rank reached"
+  notes: "Push delivery cannot be tested without a native build (EMERGENT_PUSH_KEY=placeholder). Only verify /register-push and /notify return gracefully. Single-user app, no auth credentials."

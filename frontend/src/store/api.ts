@@ -16,6 +16,14 @@ export type UserPublic = {
 };
 
 export type SquadMember = UserPublic & { squad_rank: number };
+export type RaceRow = {
+  id: string;
+  username: string;
+  is_you: boolean;
+  week_xp: number;
+  xp: number;
+  rank: number;
+};
 export type FriendsResp = {
   me: UserPublic;
   friends: SquadMember[];
@@ -23,6 +31,8 @@ export type FriendsResp = {
   squad_size: number;
   my_squad_rank: number;
   rival: { username: string; gap: number } | null;
+  referral_count: number;
+  race: { week_start: string; board: RaceRow[] };
 };
 
 export type LeaderboardRow = UserPublic & { rank: number };
@@ -82,4 +92,20 @@ export async function removeFriend(device_id: string, friend_id: string): Promis
     method: "POST",
     body: JSON.stringify({ device_id, friend_id }),
   });
+}
+
+export async function registerPush(user_id: string, platform: string, device_token: string): Promise<void> {
+  await req("/register-push", {
+    method: "POST",
+    body: JSON.stringify({ user_id, platform, device_token }),
+  });
+}
+
+// Fire-and-forget self push for streaks / quests / rank-ups. Never throws.
+export function notifySelf(device_id: string, title: string, message: string, action_url?: string): void {
+  if (!device_id) return;
+  req("/notify", {
+    method: "POST",
+    body: JSON.stringify({ device_id, title, message, action_url }),
+  }).catch(() => {});
 }

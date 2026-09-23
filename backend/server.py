@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 import os
@@ -11,6 +11,7 @@ import uuid
 import random
 import string
 import logging
+import httpx
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -25,6 +26,31 @@ api = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ascend")
 
+# ---------------- Emergent Push relay ----------------
+PUSH_BASE_URL = "https://integrations.emergentagent.com"
+PUSH_KEY = os.environ.get("EMERGENT_PUSH_KEY", "placeholder")
+_push_client = httpx.AsyncClient(
+    base_url=PUSH_BASE_URL,
+    headers={"X-Push-Key": PUSH_KEY},
+    timeout=10.0,
+)
+
+
+async def send_push(recipients: List[str], data: Dict[str, Any], idempotency_key: Optional[str] = None) -> None:
+    if not recipients:
+        return
+    if "title" not in data or "message" not in data:
+        raise ValueError("data must include title and message")
+    payload: Dict[str, Any] = {"recipients": recipients[:100], "data": data}
+    if idempotency_key:
+        payload["$idempotency_key"] = idempotency_key
+    resp = await _push_client.post("/api/v1/push/trigger", json=payload)
+    if resp.status_code == 401:
+        raise HTTPException(500, "EMERGENT_PUSH_KEY missing or invalid")
+    if resp.status_code >= 500:
+        raise HTTPException(502, "Push provider unavailable")
+    resp.raise_for_status()
+
 
 # ---------------- Models ----------------
 class UserUpsert(BaseModel):
@@ -38,6 +64,8 @@ class UserUpsert(BaseModel):
     achievements_unlocked: int = 0
     title: Optional[str] = None
     is_npc: bool = False
+    week_key: Optional[str] = None
+    week_xp: int = 0
 
 
 class UserPublic(BaseModel):
@@ -63,6 +91,19 @@ class FriendAdd(BaseModel):
 class FriendRemove(BaseModel):
     device_id: str
     friend_id: str
+
+
+class RegisterPushBody(BaseModel):
+    user_id: str
+    platform: str
+    device_token: str
+
+
+class NotifyBody(BaseModel):
+    device_id: str
+    title: str
+    message: str
+    action_url: Optional[str] = None
 
 
 # ---------------- Helpers ----------------
@@ -128,6 +169,7 @@ async def upsert_user(body: UserUpsert):
         doc["created_at"] = now
         doc["updated_at"] = now
         doc["friends"] = []
+        doc["referrals"] = []
         if not doc.get("username"):
             doc["username"] = f"Athlete{random.randint(1000, 9999)}"
         doc["friend_code"] = _gen_code()
@@ -202,18 +244,41 @@ async def get_friends(device_id: str):
     if friend_ids:
         friends = await db.users.find({"id": {"$in": friend_ids}}, {"_id": 0}).to_list(200)
 
-    # squad = me + friends, ranked by xp
+    # squad = me + friends, ranked by total xp
     squad = [me] + friends
     squad.sort(key=lambda d: int(d.get("xp", 0)), reverse=True)
     ranked = [{"squad_rank": i + 1, **_public(u, me_id=me["id"])} for i, u in enumerate(squad)]
     squad_xp = sum(int(u.get("xp", 0)) for u in squad)
 
-    # rival to chase: the squad member directly above me
+    # rival to chase: the squad member directly above me (by total xp)
     me_idx = next((i for i, u in enumerate(squad) if u["id"] == me["id"]), 0)
     rival = None
     if me_idx > 0:
         r = squad[me_idx - 1]
         rival = {"username": r.get("username", "Athlete"), "gap": int(r.get("xp", 0)) - int(me.get("xp", 0))}
+
+    # ---- Weekly Squad Race (resets Monday) ----
+    # current week = the most recent week_key reported across the squad (TZ-proof,
+    # ISO dates sort lexically). Members whose week_key != current contribute 0.
+    server_week = (date.today() - timedelta(days=date.today().weekday())).isoformat()
+    week_keys = [u.get("week_key") for u in squad if u.get("week_key")]
+    current_week = max(week_keys + [server_week])
+
+    def _week_xp(u: Dict[str, Any]) -> int:
+        return int(u.get("week_xp", 0)) if u.get("week_key") == current_week else 0
+
+    race_sorted = sorted(squad, key=_week_xp, reverse=True)
+    board = [
+        {
+            "id": u["id"],
+            "username": u.get("username", "Athlete"),
+            "is_you": u["id"] == me["id"],
+            "week_xp": _week_xp(u),
+            "xp": int(u.get("xp", 0)),
+            "rank": i + 1,
+        }
+        for i, u in enumerate(race_sorted)
+    ]
 
     return {
         "me": _public(me, me_id=me["id"]),
@@ -222,6 +287,8 @@ async def get_friends(device_id: str):
         "squad_size": len(squad),
         "my_squad_rank": me_idx + 1,
         "rival": rival,
+        "referral_count": len(me.get("referrals", []) or []),
+        "race": {"week_start": current_week, "board": board},
     }
 
 
@@ -240,6 +307,21 @@ async def add_friend(body: FriendAdd):
     # mutual link
     await db.users.update_one({"id": me["id"]}, {"$addToSet": {"friends": target["id"]}})
     await db.users.update_one({"id": target["id"]}, {"$addToSet": {"friends": me["id"]}})
+    # record referral on the code owner (target) so they can be rewarded
+    await db.users.update_one({"id": target["id"]}, {"$addToSet": {"referrals": me["id"]}})
+    # notify the code owner (likely offline) that a friend joined their squad
+    try:
+        await send_push(
+            recipients=[target["device_id"]],
+            data={
+                "title": "New squad member! 💪",
+                "message": f"{me.get('username', 'An athlete')} joined your squad using your code.",
+                "action_url": "/leaderboard",
+            },
+            idempotency_key=f"ref-{target['id']}-{me['id']}",
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning("friend-join push failed (non-blocking): %s", e)
     return _public(target, me_id=me["id"])
 
 
@@ -248,6 +330,32 @@ async def remove_friend(body: FriendRemove):
     me = await _get_me(body.device_id)
     await db.users.update_one({"id": me["id"]}, {"$pull": {"friends": body.friend_id}})
     await db.users.update_one({"id": body.friend_id}, {"$pull": {"friends": me["id"]}})
+    return {"ok": True}
+
+
+# ---------------- Push notifications ----------------
+@api.post("/register-push", status_code=201)
+async def register_push(body: RegisterPushBody):
+    resp = await _push_client.post("/api/v1/push/users/register", json=body.model_dump())
+    if resp.status_code == 401:
+        raise HTTPException(500, "EMERGENT_PUSH_KEY missing or invalid")
+    if resp.status_code >= 500:
+        raise HTTPException(502, "Push provider unavailable")
+    resp.raise_for_status()
+    return {"status": "registered"}
+
+
+@api.post("/notify")
+async def notify(body: NotifyBody):
+    # Sends a push to the caller's own device (used for streak/quest/rank-up alerts).
+    data: Dict[str, Any] = {"title": body.title, "message": body.message}
+    if body.action_url:
+        data["action_url"] = body.action_url
+    try:
+        await send_push(recipients=[body.device_id], data=data)
+    except Exception as e:  # noqa: BLE001
+        log.warning("notify push failed (non-blocking): %s", e)
+        return {"ok": False}
     return {"ok": True}
 
 

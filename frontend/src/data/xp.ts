@@ -21,6 +21,7 @@ export const XP_REWARDS = {
   ALL_WEEK_WORKOUTS: 1000,
   MEAL_COMPLETE: 25,
   HYDRATION_GOAL: 75,
+  INVITE_FRIEND: 500,
 };
 
 export const DAILY_HYDRATION_GOAL_ML = 2500; // 2.5L default
