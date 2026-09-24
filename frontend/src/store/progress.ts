@@ -56,6 +56,20 @@ export type Progress = {
   // Invite rewards — how many referrals have already been paid out locally
   rewardedReferrals: number;
 
+  // Personal records — best reps/weight per exercise + logged history
+  prs: Record<string, PR>;
+  prCount: number;
+
+  // Reward chests & cosmetics
+  chestsPending: number;
+  lastChestLevel: number;
+  dailyBonusDates: string[];       // dates a daily-bonus chest was granted
+  ownedCosmetics: OwnedCosmetics;  // cosmetics unlocked via chests
+  ownedTitles: string[];           // titles won via chests
+
+  // Streak protection
+  streakShields: number;
+
   // Notifications (in-app inbox)
   notifications: NotificationItem[];
 
@@ -71,6 +85,26 @@ export type NotificationItem = {
   body: string;
   seen: boolean;
 };
+
+export type PR = {
+  reps: number;
+  weight: number;
+  updatedAt: string;
+  history: { ts: string; reps: number; weight: number }[];
+};
+
+export type OwnedCosmetics = {
+  outfit: number[];
+  hair: number[];
+  aura: number[];
+  badge: number[];
+};
+
+export type ChestReward =
+  | { kind: "xp"; amount: number; label: string; icon: string; color: string }
+  | { kind: "shield"; amount: number; label: string; icon: string; color: string }
+  | { kind: "cosmetic"; slot: keyof OwnedCosmetics; index: number; label: string; icon: string; color: string }
+  | { kind: "title"; title: string; label: string; icon: string; color: string };
 
 function todayISO(d = new Date()) { return isoDate(d); }
 function newId() { return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
@@ -100,6 +134,14 @@ function makeDefault(): Progress {
     lastActiveDate: null,
     character: DEFAULT_CHARACTER,
     rewardedReferrals: 0,
+    prs: {},
+    prCount: 0,
+    chestsPending: 0,
+    lastChestLevel: 1,
+    dailyBonusDates: [],
+    ownedCosmetics: { outfit: [], hair: [], aura: [], badge: [] },
+    ownedTitles: [],
+    streakShields: 0,
     notifications: [],
     pendingRankUp: null,
   };

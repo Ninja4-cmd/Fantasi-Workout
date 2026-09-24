@@ -24,4 +24,12 @@ export const XP_REWARDS = {
   INVITE_FRIEND: 500,
 };
 
+// Streak protection shields are bought with XP that sits *above* your current rank
+// threshold, so buying never drops your rank.
+export const STREAK_SHIELD_COST = 1500;
+// Grant a reward chest every N character levels (level = 1 + floor(totalXP/500)).
+export const CHEST_LEVEL_INTERVAL = 5;
+// Exclusive titles that can drop from chests.
+export const CHEST_TITLES = ["Vault Raider", "Fortune's Favor", "Golden One", "Lucky Star", "Chestbreaker"];
+
 export const DAILY_HYDRATION_GOAL_ML = 2500; // 2.5L default
